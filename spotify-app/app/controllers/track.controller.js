@@ -8,15 +8,18 @@ ffmpeg.setFfmpegPath(ffmpegPath);
 
 exports.uploadTrack = (req, res) => {
   // Ensure a file was uploaded
-  if (!req.file) {
-    return res.status(400).send('No file uploaded');
+  if (!req.files) {
+    return res.status(400).send('No files uploaded');
   }
 
   // Define the output path for the converted file
-  const outputFilePath = path.join('./tmp/', `${req.file.filename}.ogg`);
+  const outputFilePath = path.join(
+    './tmp/',
+    `${req.files.track[0].filename}.ogg`
+  );
 
   // Convert the uploaded .mp3 file to .wav
-  ffmpeg(req.file.path)
+  ffmpeg(req.files.track[0].path)
     .output(outputFilePath)
     .format('ogg')
     .on('error', err => {
@@ -32,6 +35,7 @@ exports.uploadTrack = (req, res) => {
         artist: req.body.artist,
         album: req.body.album,
         url: outputFilePath,
+        imageUrl: req.files.img[0].path, // Add this line to save the image path
       });
 
       // Save track in the database

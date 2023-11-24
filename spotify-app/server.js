@@ -16,6 +16,8 @@ app.use(express.json());
 // parse requests of content-type - application/x-www-form-urlencoded
 app.use(express.urlencoded({ extended: true }));
 
+app.use(express.static('tmp'));
+
 const db = require('./app/models');
 
 console.log(db.url);
@@ -40,7 +42,7 @@ app.get('/', (req, res) => {
 
 //create folder tmp if not exist
 const fs = require('fs');
-const dir = './tmp/';
+const dir = './tmp/images';
 if (!fs.existsSync(dir)) {
   fs.mkdirSync(dir);
 }
