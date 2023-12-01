@@ -42,13 +42,15 @@ app.get('/', (req, res) => {
 
 //create folder tmp if not exist
 const fs = require('fs');
-const dir = './tmp/images';
+const dir = './tmp/image';
 if (!fs.existsSync(dir)) {
   fs.mkdirSync(dir);
 }
 
 require('./app/routes/turorial.routes')(app);
 require('./app/routes/track.routes')(app);
+require('./app/routes/album.routes')(app);
+require('./app/routes/artist.routes')(app);
 
 // set port, listen for requests
 const PORT = process.env.NODE_DOCKER_PORT || 8080;

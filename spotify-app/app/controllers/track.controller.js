@@ -4,22 +4,20 @@ const Track = require('../models/track.model.js');
 
 const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 const ffmpeg = require('fluent-ffmpeg');
+const Album = require('../models/album.model.js');
 ffmpeg.setFfmpegPath(ffmpegPath);
 
 exports.uploadTrack = (req, res) => {
   // Ensure a file was uploaded
-  if (!req.files) {
+  if (!req.file) {
     return res.status(400).send('No files uploaded');
   }
 
   // Define the output path for the converted file
-  const outputFilePath = path.join(
-    './tmp/',
-    `${req.files.track[0].filename}.ogg`
-  );
+  const outputFilePath = path.join('./tmp/', `${req.file.filename}.ogg`);
 
   // Convert the uploaded .mp3 file to .wav
-  ffmpeg(req.files.track[0].path)
+  ffmpeg(req.file.path)
     .output(outputFilePath)
     .format('ogg')
     .on('error', err => {
@@ -32,16 +30,28 @@ exports.uploadTrack = (req, res) => {
       // Create a new track object
       const track = new Track({
         name: req.body.name,
-        artist: req.body.artist,
         album: req.body.album,
         url: outputFilePath,
-        imageUrl: req.files.img[0].path, // Add this line to save the image path
       });
 
       // Save track in the database
       track
         .save(track)
         .then(data => {
+          if (req.body.album) {
+            Album.findByIdAndUpdate(
+              req.body.album,
+              { $push: { tracks: data._id } },
+              { useFindAndModify: false }
+            )
+              .then(data => {
+                console.log(data);
+              })
+              .catch(err => {
+                console.log(err);
+              });
+          }
+
           res.send({
             message: 'Audio file converted and stored successfully',
             data: data,
@@ -110,7 +120,7 @@ exports.updateTrack = (req, res) => {
 exports.deleteTrack = (req, res) => {
   const id = req.params.id;
 
-  Track.findByIdAndRemove(id)
+  Track.findByIdAndRemove(id, { useFindAndModify: false })
     .then(data => {
       if (!data) {
         res.status(404).send({
