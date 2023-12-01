@@ -31,7 +31,7 @@ exports.uploadTrack = (req, res) => {
       const track = new Track({
         name: req.body.name,
         album: req.body.album,
-        url: outputFilePath,
+        url: req.file.filename + '.ogg',
       });
 
       // Save track in the database
