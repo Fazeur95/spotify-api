@@ -3,6 +3,9 @@ const Album = require('../models/album.model');
 const Track = require('../models/track.model');
 const fs = require('fs');
 const path = require('path');
+const { uploadS3 } = require('../../utils/s3');
+
+const { AWS_CLOUDFRONT_HOST } = process.env;
 
 exports.getArtists = (req, res) => {
   let query = Artist.find({});
@@ -39,21 +42,35 @@ exports.getArtist = (req, res) => {
 };
 
 exports.createArtist = (req, res) => {
-  const artist = new Artist({
-    name: req.body.name,
-    albums: req.body.albums || [],
-    imageUrl: req.file.filename ? '/tmp/image/' + req.file.filename : '',
-  });
-
-  artist.save((err, artist) => {
+  uploadS3(req.file.filename, req.file.path, (err, data) => {
+    fs.unlink(req.file.path, err => {
+      if (err) {
+        console.error('Error deleting temporary file', err);
+      } else {
+        console.log('Temporary file deleted successfully');
+      }
+    });
     if (err) {
-      return res.send({
-        message: 'Error saving artist',
-        error: err,
+      console.error('Error uploading file to S3', err);
+      res.status(500).send('Error uploading file to S3');
+    } else {
+      const artist = new Artist({
+        name: req.body.name,
+        albums: req.body.albums || [],
+        imageUrl: `${AWS_CLOUDFRONT_HOST}${req.file.filename}`,
+      });
+
+      artist.save((err, artist) => {
+        if (err) {
+          return res.send({
+            message: 'Error saving artist',
+            error: err,
+          });
+        }
+
+        return res.json(artist);
       });
     }
-
-    return res.json(artist);
   });
 };
 

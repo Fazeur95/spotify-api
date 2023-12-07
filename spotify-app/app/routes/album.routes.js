@@ -21,6 +21,7 @@ module.exports = app => {
 
   router.post('/', upload.single('image'), albums.createAlbum);
   router.get('/', albums.getAlbums);
+  router.get('/:id', albums.getAlbum);
   router.put('/:id', albums.updateAlbum);
 
   app.use('/api/album', router);

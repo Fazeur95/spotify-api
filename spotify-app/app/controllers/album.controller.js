@@ -1,4 +1,8 @@
+const { uploadS3 } = require('../../utils/s3');
 const Album = require('../models/album.model');
+const fs = require('fs');
+
+const { AWS_CLOUDFRONT_HOST } = process.env;
 
 exports.getAlbums = (req, res) => {
   let query = Album.find({});
@@ -25,6 +29,7 @@ exports.getAlbum = (req, res) => {
     .populate('tracks')
     .exec((err, album) => {
       if (err) {
+        res.status(500);
         return res.send({
           message: 'Error getting album',
           error: err,
@@ -36,21 +41,37 @@ exports.getAlbum = (req, res) => {
 };
 
 exports.createAlbum = (req, res) => {
-  const album = new Album({
-    name: req.body.name,
-    artist: req.body.artist,
-    imageUrl: req.file.filename ? '/tmp/image/' + req.file.filename : '',
-  });
+  console.log(req.file);
 
-  album.save((err, album) => {
+  uploadS3(req.file.filename, req.file.path, (err, data) => {
+    fs.unlink(req.file.path, err => {
+      if (err) {
+        console.error('Error deleting temporary file', err);
+      } else {
+        console.log('Temporary file deleted successfully');
+      }
+    });
     if (err) {
-      return res.send({
-        message: 'Error saving album',
-        error: err,
+      console.error('Error uploading file to S3', err);
+      res.status(500).send('Error uploading file to S3');
+    } else {
+      const album = new Album({
+        name: req.body.name,
+        artist: req.body.artist,
+        imageUrl: `${AWS_CLOUDFRONT_HOST}${req.file.filename}`,
+      });
+
+      album.save((err, album) => {
+        if (err) {
+          return res.send({
+            message: 'Error saving album',
+            error: err,
+          });
+        }
+
+        return res.json(album);
       });
     }
-
-    return res.json(album);
   });
 };
 

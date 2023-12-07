@@ -1,22 +1,29 @@
 const fs = require('fs');
 const path = require('path');
 const Track = require('../models/track.model.js');
+const { uploadS3 } = require('../../utils/s3.js');
 
 const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 const ffmpeg = require('fluent-ffmpeg');
 const Album = require('../models/album.model.js');
+
 ffmpeg.setFfmpegPath(ffmpegPath);
 
+const { AWS_CLOUDFRONT_HOST } = process.env;
+
+// Utilisez la fonction dans votre contrôleur
 exports.uploadTrack = (req, res) => {
-  // Ensure a file was uploaded
+  // Assurez-vous qu'un fichier a été téléchargé
   if (!req.file) {
     return res.status(400).send('No files uploaded');
   }
 
-  // Define the output path for the converted file
-  const outputFilePath = path.join('./tmp/', `${req.file.filename}.ogg`);
+  //Crer un nom de fichier unique
+  const fileName = Math.floor(Math.random() * Date.now()).toString(36);
 
-  // Convert the uploaded .mp3 file to .wav
+  const outputFilePath = path.join('./tmp/', `${fileName}.ogg`);
+
+  // Convertissez le fichier .mp3 téléchargé en .ogg
   ffmpeg(req.file.path)
     .output(outputFilePath)
     .format('ogg')
@@ -27,40 +34,55 @@ exports.uploadTrack = (req, res) => {
     .on('end', () => {
       console.log('Audio file converted successfully');
 
-      // Create a new track object
-      const track = new Track({
-        name: req.body.name,
-        album: req.body.album,
-        url: req.file.filename + '.ogg',
-      });
-
-      // Save track in the database
-      track
-        .save(track)
-        .then(data => {
-          if (req.body.album) {
-            Album.findByIdAndUpdate(
-              req.body.album,
-              { $push: { tracks: data._id } },
-              { useFindAndModify: false }
-            )
-              .then(data => {
-                console.log(data);
-              })
-              .catch(err => {
-                console.log(err);
-              });
+      // Téléchargez le fichier converti dans S3
+      uploadS3(`${fileName}.ogg`, outputFilePath, (err, url) => {
+        fs.unlink(outputFilePath, err => {
+          if (err) {
+            console.error('Error deleting temporary file', err);
+          } else {
+            console.log('Temporary file deleted successfully');
           }
-
-          res.send({
-            message: 'Audio file converted and stored successfully',
-            data: data,
-          });
-        })
-        .catch(err => {
-          console.error('Error saving track to database', err);
-          res.status(500).send('Error saving track to database');
         });
+        if (err) {
+          console.error('Error uploading file to S3', err);
+          res.status(500).send('Error uploading file to S3');
+        } else {
+          // Créez un nouvel objet track
+          const track = new Track({
+            name: req.body.name,
+            album: req.body.album,
+            url: `${AWS_CLOUDFRONT_HOST}${fileName}.ogg`, // Utilisez l'URL du fichier S3
+          });
+
+          // Sauvegardez la piste dans la base de données
+          track
+            .save(track)
+            .then(data => {
+              if (req.body.album) {
+                Album.findByIdAndUpdate(
+                  req.body.album,
+                  { $push: { tracks: data._id } },
+                  { useFindAndModify: false }
+                )
+                  .then(data => {
+                    console.log(data);
+                  })
+                  .catch(err => {
+                    console.log(err);
+                  });
+              }
+
+              res.send({
+                message: 'Audio file converted and stored successfully',
+                data: data,
+              });
+            })
+            .catch(err => {
+              console.error('Error saving track to database', err);
+              res.status(500).send('Error saving track to database');
+            });
+        }
+      });
     })
     .run();
 };
