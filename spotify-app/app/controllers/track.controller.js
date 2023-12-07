@@ -89,6 +89,14 @@ exports.uploadTrack = (req, res) => {
 
 exports.getTracks = (req, res) => {
   Track.find()
+    .populate('album')
+    .populate({
+      path: 'album',
+      populate: {
+        path: 'artist',
+        model: 'Artist',
+      },
+    })
     .then(tracks => {
       res.send(tracks);
     })
