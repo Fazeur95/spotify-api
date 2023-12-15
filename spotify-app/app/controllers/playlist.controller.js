@@ -25,12 +25,14 @@ exports.getPlaylists = (req, res) => {
 
 exports.getPlaylist = (req, res) => {
   Playlist.findById(req.params.id)
-    .populate('tracks')
     .populate({
       path: 'tracks',
       populate: {
         path: 'album',
-        model: 'Album',
+        populate: {
+          path: 'artist',
+          model: 'Artist',
+        },
       },
     })
     .exec((err, playlist) => {
