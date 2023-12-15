@@ -1,5 +1,5 @@
 module.exports = app => {
-  const albums = require('../controllers/album.controller.js');
+  const playlist = require('../controllers/playlist.controller.js');
   const multer = require('multer');
   const path = require('path');
 
@@ -19,11 +19,11 @@ module.exports = app => {
 
   const upload = multer({ storage: storage });
 
-  router.post('/', upload.single('image'), albums.createAlbum);
-  router.get('/', albums.getAlbums);
-  router.get('/:id', albums.getAlbum);
-  router.put('/:id', albums.updateAlbum);
-  router.delete('/:id', albums.deleteAlbum);
+  router.post('/', upload.single('image'), playlist.createPlaylist);
+  router.get('/', playlist.getPlaylists);
+  router.get('/:id', playlist.getPlaylist);
+  router.put('/:id', playlist.updatePlaylist);
+  router.delete('/:id', playlist.deletePlaylist);
 
-  app.use('/api/album', router);
+  app.use('/api/playlist', router);
 };

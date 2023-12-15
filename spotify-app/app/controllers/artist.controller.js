@@ -3,7 +3,7 @@ const Album = require('../models/album.model');
 const Track = require('../models/track.model');
 const fs = require('fs');
 const path = require('path');
-const { uploadS3 } = require('../../utils/s3');
+const { uploadS3, deleteS3 } = require('../../utils/s3');
 
 const { AWS_CLOUDFRONT_HOST } = process.env;
 
@@ -35,6 +35,10 @@ exports.getArtist = (req, res) => {
           message: 'Error getting artist',
           error: err,
         });
+      }
+
+      if (!artist) {
+        return res.status(404).send({ message: 'Artist not found' });
       }
 
       return res.json(artist);
@@ -128,24 +132,14 @@ exports.deleteArtist = async (req, res) => {
       return res.status(404).send({ message: 'Artist non trouvé' });
     }
 
-    //Supromer l'image de l'artist
-    try {
-      artist.imageUrl &&
-        fs.unlinkSync(path.join(__dirname, '..', '..', artist.imageUrl));
-    } catch (err) {
-      console.error(err);
-    }
+    const fileName = artist.imageUrl.split('/').pop();
 
-    // Supprimer les images des albums de l'artist
-    artist.albums.forEach(album => {
-      if (album.imageUrl) {
-        try {
-          const imagePath = path.join(__dirname, album.imageUrl);
-          fs.unlinkSync(imagePath);
-        } catch (err) {
-          console.error(err);
-        }
+    deleteS3(fileName, (err, data) => {
+      if (err) {
+        console.error('Error deleting file from S3', err);
+        return;
       }
+      console.log('File deleted from S3 successfully');
     });
 
     // Supprimer les titres des albums de l'artist

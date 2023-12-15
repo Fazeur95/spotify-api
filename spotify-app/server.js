@@ -5,7 +5,7 @@ const cors = require('cors');
 const app = express();
 
 var corsOptions = {
-  origin: 'http://localhost:8081',
+  origin: ['http://localhost:8081', 'http://localhost:5173'],
 };
 
 app.use(cors(corsOptions));
@@ -51,6 +51,7 @@ require('./app/routes/turorial.routes')(app);
 require('./app/routes/track.routes')(app);
 require('./app/routes/album.routes')(app);
 require('./app/routes/artist.routes')(app);
+require('./app/routes/playlist.routes')(app);
 
 // set port, listen for requests
 const PORT = process.env.NODE_DOCKER_PORT || 8080;

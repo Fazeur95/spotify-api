@@ -46,3 +46,21 @@ exports.uploadS3 = (fileName, filePath, callback) => {
     }
   });
 };
+
+// Fonction pour supprimer un fichier de S3
+exports.deleteS3 = (fileName, callback) => {
+  // Définissez les paramètres pour l'upload S3
+  const params = {
+    Bucket: AWS_BUCKET_NAME,
+    Key: fileName,
+  };
+
+  // Supprimez le fichier du bucket S3
+  s3.deleteObject(params, (err, data) => {
+    if (err) {
+      callback(err);
+    } else {
+      callback(null, data);
+    }
+  });
+};

@@ -1,6 +1,7 @@
-const { uploadS3 } = require('../../utils/s3');
+const { uploadS3, deleteS3 } = require('../../utils/s3');
 const Album = require('../models/album.model');
 const fs = require('fs');
+const Artist = require('../models/artist.model');
 
 const { AWS_CLOUDFRONT_HOST } = process.env;
 
@@ -69,6 +70,29 @@ exports.createAlbum = (req, res) => {
           });
         }
 
+        if (!req.body.artist) {
+          return res.json(album);
+        }
+
+        Artist.findById(req.body.artist).exec((err, artist) => {
+          if (err) {
+            return res.send({
+              message: 'Error getting artist',
+              error: err,
+            });
+          }
+
+          artist?.albums.push(album._id);
+          artist.save((err, artist) => {
+            if (err) {
+              return res.send({
+                message: 'Error saving artist',
+                error: err,
+              });
+            }
+          });
+        });
+
         return res.json(album);
       });
     }
@@ -91,4 +115,40 @@ exports.updateAlbum = (req, res) => {
 
     res.json(album);
   });
+};
+
+exports.deleteAlbum = (req, res) => {
+  const albumId = req.params.id;
+
+  Album.findByIdAndRemove(albumId)
+    .then(album => {
+      if (!album) {
+        res.status(404).send({ message: "Album non trouvé avec l'ID fourni" });
+        return;
+      }
+
+      // Delete album from artist
+      Artist.findByIdAndUpdate(
+        album.artist,
+        { $pull: { albums: album._id } },
+        { useFindAndModify: false }
+      ).catch(err => {
+        console.log(err);
+      });
+
+      deleteS3(album.imageUrl, (err, data) => {
+        if (err) {
+          console.error('Error deleting file from S3', err);
+        } else {
+          console.log('File deleted successfully from S3');
+        }
+      });
+
+      res.send({ message: 'Album supprimé avec succès' });
+    })
+    .catch(err => {
+      res.status(500).send({
+        message: 'Impossible de supprimer l album avec l ID=' + albumId,
+      });
+    });
 };
