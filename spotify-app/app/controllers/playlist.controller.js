@@ -26,6 +26,13 @@ exports.getPlaylists = (req, res) => {
 exports.getPlaylist = (req, res) => {
   Playlist.findById(req.params.id)
     .populate('tracks')
+    .populate({
+      path: 'tracks',
+      populate: {
+        path: 'album',
+        model: 'Album',
+      },
+    })
     .exec((err, playlist) => {
       if (err) {
         res.status(500);
