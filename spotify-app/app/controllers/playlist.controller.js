@@ -51,34 +51,26 @@ exports.getPlaylist = (req, res) => {
 exports.createPlaylist = (req, res) => {
   console.log(req.file);
 
-  uploadS3(req.file.filename, req.file.path, (err, data) => {
-    fs.unlink(req.file.path, err => {
-      if (err) {
-        console.error('Error deleting temporary file', err);
-      } else {
-        console.log('Temporary file deleted successfully');
-      }
+  if (!req.body.name) {
+    return res.status(400).send({
+      message: 'Playlist name can not be empty',
     });
+  }
+
+  const playlist = new Playlist({
+    name: req.body.name,
+    imageUrl: `https://d2n91ghxz89e1f.cloudfront.net/image-1702656156574`,
+  });
+
+  playlist.save((err, playlist) => {
     if (err) {
-      console.error('Error uploading file to S3', err);
-      res.status(500).send('Error uploading file to S3');
-    } else {
-      const playlist = new Playlist({
-        name: req.body.name,
-        imageUrl: `${AWS_CLOUDFRONT_HOST}${req.file.filename}`,
-      });
-
-      playlist.save((err, playlist) => {
-        if (err) {
-          return res.send({
-            message: 'Error saving playlist',
-            error: err,
-          });
-        }
-
-        return res.json(playlist);
+      return res.send({
+        message: 'Error saving playlist',
+        error: err,
       });
     }
+
+    return res.json(playlist);
   });
 };
 
