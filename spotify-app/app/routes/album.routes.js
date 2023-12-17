@@ -22,7 +22,7 @@ module.exports = app => {
   router.post('/', upload.single('image'), albums.createAlbum);
   router.get('/', albums.getAlbums);
   router.get('/:id', albums.getAlbum);
-  router.put('/:id', albums.updateAlbum);
+  router.put('/:id', upload.single('image'), albums.updateAlbum);
   router.delete('/:id', albums.deleteAlbum);
 
   app.use('/api/album', router);

@@ -2,6 +2,7 @@ const { uploadS3, deleteS3 } = require('../../utils/s3');
 const Album = require('../models/album.model');
 const fs = require('fs');
 const Artist = require('../models/artist.model');
+const Track = require('../models/track.model');
 
 const { AWS_CLOUDFRONT_HOST } = process.env;
 
@@ -26,8 +27,17 @@ exports.getAlbums = (req, res) => {
 
 exports.getAlbum = (req, res) => {
   Album.findById(req.params.id)
-    .populate('artist')
-    .populate('tracks')
+    .populate({
+      path: 'artist',
+      model: 'Artist',
+    })
+    .populate({
+      path: 'tracks',
+      model: 'Track',
+      options: {
+        sort: { order: 1 },
+      },
+    })
     .exec((err, album) => {
       if (err) {
         res.status(500);
@@ -113,7 +123,48 @@ exports.updateAlbum = (req, res) => {
       return;
     }
 
-    res.json(album);
+    if (req.file) {
+      deleteS3(album.imageUrl, (err, data) => {
+        if (err) {
+          console.error('Error deleting file from S3', err);
+        } else {
+          console.log('File deleted successfully from S3');
+        }
+      });
+
+      uploadS3(req.file.filename, req.file.path, (err, data) => {
+        fs.unlink(req.file.path, err => {
+          if (err) {
+            console.error('Error deleting temporary file', err);
+          } else {
+            console.log('Temporary file deleted successfully');
+          }
+        });
+        if (err) {
+          console.error('Error uploading file to S3', err);
+          res.status(500).send('Error uploading file to S3');
+        } else {
+          album.imageUrl = `${AWS_CLOUDFRONT_HOST}${req.file.filename}`;
+          album.save((err, album) => {
+            if (err) {
+              return res.send({
+                message: 'Error saving album',
+                error: err,
+              });
+            }
+          });
+        }
+      });
+    }
+
+    album.save((err, album) => {
+      if (err) {
+        res.status(500).send({ message: 'Error updating album' });
+        return;
+      }
+
+      return res.send(album);
+    });
   });
 };
 
@@ -134,6 +185,30 @@ exports.deleteAlbum = (req, res) => {
         { useFindAndModify: false }
       ).catch(err => {
         console.log(err);
+      });
+
+      // Delete album tracks
+      album.tracks.forEach(trackId => {
+        Track.findByIdAndRemove(trackId).catch(err => {
+          console.log(err);
+        });
+        // Delete track from playlists
+        Playlist.updateMany(
+          {},
+          { $pull: { tracks: trackId } },
+          { useFindAndModify: false }
+        ).catch(err => {
+          console.log(err);
+        });
+
+        //delete track from S3
+        deleteS3(track.url, (err, data) => {
+          if (err) {
+            console.error('Error deleting file from S3', err);
+          } else {
+            console.log('File deleted successfully from S3');
+          }
+        });
       });
 
       deleteS3(album.imageUrl, (err, data) => {

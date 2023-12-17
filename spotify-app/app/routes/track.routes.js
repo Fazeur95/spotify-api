@@ -24,6 +24,7 @@ module.exports = app => {
   router.get('/:id', tracks.getTrack);
   router.put('/:id', tracks.updateTrack);
   router.delete('/:id', tracks.deleteTrack);
+  router.post('/order', tracks.updateTracksOrder);
 
   app.use('/api/track', router);
 };

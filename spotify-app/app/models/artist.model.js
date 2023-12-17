@@ -10,6 +10,10 @@ const artistSchema = new Schema({
   imageUrl: {
     type: String,
   },
+  numberListenings: {
+    type: Number,
+    default: 0,
+  },
 });
 
 module.exports = mongoose.model('Artist', artistSchema);

@@ -10,6 +10,10 @@ const playlistSchema = new Schema({
     type: String,
   },
   tracks: [{ type: Schema.Types.ObjectId, ref: 'Track' }],
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
 });
 
 module.exports = mongoose.model('Playlist', playlistSchema);
