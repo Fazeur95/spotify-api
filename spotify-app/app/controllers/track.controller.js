@@ -28,6 +28,7 @@ exports.uploadTrack = async (req, res) => {
 
   const trackName = req.body.name;
   const albumId = req.body.album;
+  const order = req.body.order;
 
   if (await doesTrackExistInAlbum(trackName, albumId)) {
     return res.status(400).send({
@@ -69,6 +70,7 @@ exports.uploadTrack = async (req, res) => {
           const track = new Track({
             name: req.body.name,
             album: req.body.album,
+            order: req.body.order,
             url: `${AWS_CLOUDFRONT_HOST}${fileName}.ogg`, // Utilisez l'URL du fichier S3
           });
 
