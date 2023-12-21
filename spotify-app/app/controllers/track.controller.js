@@ -6,6 +6,7 @@ const { uploadS3, deleteS3 } = require('../../utils/s3.js');
 const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 const ffmpeg = require('fluent-ffmpeg');
 const Album = require('../models/album.model.js');
+const Playlist = require('../models/playlist.model.js');
 
 ffmpeg.setFfmpegPath(ffmpegPath);
 
@@ -28,7 +29,6 @@ exports.uploadTrack = async (req, res) => {
 
   const trackName = req.body.name;
   const albumId = req.body.album;
-  const order = req.body.order;
 
   if (await doesTrackExistInAlbum(trackName, albumId)) {
     return res.status(400).send({
@@ -223,6 +223,8 @@ exports.deleteTrack = async (req, res) => {
 
   try {
     const track = await Track.findById(id);
+
+    console.log(track);
     if (!track) {
       return res.status(404).send({
         message: `Cannot delete track with id=${id}. Maybe track was not found!`,

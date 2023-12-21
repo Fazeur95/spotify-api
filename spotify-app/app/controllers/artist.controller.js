@@ -153,10 +153,10 @@ exports.deleteArtist = async (req, res) => {
       console.log('File deleted from S3 successfully');
     });
 
-    // Supprimer les titres des albums de l'artist
-    for (const album of artist.albums) {
-      await Track.deleteMany({ _id: { $in: album.track } });
-    }
+    artist.albums.forEach(async album => {
+      // Supprimer les tracks de l'album
+      await Track.deleteMany({ album: album._id });
+    });
 
     // Supprimer les albums de l'artist
     await Album.deleteMany({ _id: { $in: artist.albums } });
