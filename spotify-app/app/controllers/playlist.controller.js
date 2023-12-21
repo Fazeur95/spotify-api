@@ -128,16 +128,30 @@ exports.deletePlaylist = (req, res) => {
     });
 };
 
-exports.addTrackToPlaylist = (req, res) => {
+exports.addTrackToPlaylist = async (req, res) => {
   const playlistId = req.params.id;
   const trackId = req.body.trackId;
 
-  Playlist.findByIdAndUpdate(
-    playlistId,
-    { $push: { tracks: trackId } },
-    { new: true }
-  )
-    .populate({
+  try {
+    const playlist = await Playlist.findById(playlistId);
+    if (!playlist) {
+      return res
+        .status(404)
+        .send({ message: "Playlist non trouvée avec l'ID fourni" });
+    }
+
+    // Check if track is already in the playlist
+    if (playlist.tracks.includes(trackId)) {
+      return res
+        .status(400)
+        .send({ message: 'Le track est déjà dans la playlist' });
+    }
+
+    // Add track to playlist
+    playlist.tracks.push(trackId);
+    const updatedPlaylist = await playlist.save();
+
+    const populatedPlaylist = await Playlist.populate(updatedPlaylist, {
       path: 'tracks',
       populate: {
         path: 'album',
@@ -146,16 +160,13 @@ exports.addTrackToPlaylist = (req, res) => {
           model: 'Artist',
         },
       },
-    })
-    .exec((err, playlist) => {
-      if (err) {
-        res.status(500);
-        return res.send({
-          message: 'Error getting playlist',
-          error: err,
-        });
-      }
-
-      return res.json(playlist);
     });
+
+    return res.json(populatedPlaylist);
+  } catch (err) {
+    return res.status(500).send({
+      message: 'Erreur lors de la mise à jour de la playlist',
+      error: err,
+    });
+  }
 };
