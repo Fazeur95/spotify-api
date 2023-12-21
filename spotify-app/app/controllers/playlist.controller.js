@@ -127,3 +127,35 @@ exports.deletePlaylist = (req, res) => {
       });
     });
 };
+
+exports.addTrackToPlaylist = (req, res) => {
+  const playlistId = req.params.id;
+  const trackId = req.body.trackId;
+
+  Playlist.findByIdAndUpdate(
+    playlistId,
+    { $push: { tracks: trackId } },
+    { new: true }
+  )
+    .populate({
+      path: 'tracks',
+      populate: {
+        path: 'album',
+        populate: {
+          path: 'artist',
+          model: 'Artist',
+        },
+      },
+    })
+    .exec((err, playlist) => {
+      if (err) {
+        res.status(500);
+        return res.send({
+          message: 'Error getting playlist',
+          error: err,
+        });
+      }
+
+      return res.json(playlist);
+    });
+};

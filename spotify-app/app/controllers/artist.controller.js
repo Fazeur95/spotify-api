@@ -92,21 +92,32 @@ exports.updateArtist = (req, res) => {
       return;
     }
 
-    // Si une nouvelle image est téléchargée et que l'artist a déjà une image, supprimer l'ancienne image
-    if (req.file && artist.imageUrl) {
-      const oldImagePath = path.join(artist.imageUrl);
-      fs.unlink(oldImagePath, unlinkErr => {
-        if (unlinkErr) {
-          console.error(unlinkErr);
+    if (req.file) {
+      deleteS3(artist.imageUrl, (err, data) => {
+        if (err) {
+          console.error('Error deleting file from S3', err);
           return;
         }
-        // L'ancienne image a été supprimée
+        console.log('File deleted from S3 successfully');
       });
     }
 
-    // Si une image est téléchargée, ajouter l'URL de l'image aux données de mise à jour
     if (req.file) {
-      updateData.imageUrl = '/tmp/image/' + req.file.filename;
+      uploadS3(req.file.filename, req.file.path, (err, data) => {
+        fs.unlink(req.file.path, err => {
+          if (err) {
+            console.error('Error deleting temporary file', err);
+          } else {
+            console.log('Temporary file deleted successfully');
+          }
+        });
+        if (err) {
+          console.error('Error uploading file to S3', err);
+          res.status(500).send('Error uploading file to S3');
+        } else {
+          updateData.imageUrl = `${AWS_CLOUDFRONT_HOST}${req.file.filename}`;
+        }
+      });
     }
 
     // Mettre à jour l'artist avec les nouvelles données
