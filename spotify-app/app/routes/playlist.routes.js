@@ -25,6 +25,7 @@ module.exports = app => {
   router.put('/:id', playlist.updatePlaylist);
   router.delete('/:id', playlist.deletePlaylist);
   router.post('/:id/track', playlist.addTrackToPlaylist);
+  router.delete('/:id/track/:trackId', playlist.deleteTrackFromPlaylist);
 
   app.use('/api/playlist', router);
 };

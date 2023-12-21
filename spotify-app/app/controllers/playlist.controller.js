@@ -75,11 +75,11 @@ exports.createPlaylist = (req, res) => {
 };
 
 exports.updatePlaylist = (req, res) => {
-  const albumId = req.params.id;
+  const playlistId = req.params.id;
   const updateData = req.body;
 
   Playlist.findByIdAndUpdate(
-    albumId,
+    playlistId,
     updateData,
     { new: true },
     (err, playlist) => {
@@ -94,15 +94,54 @@ exports.updatePlaylist = (req, res) => {
         return;
       }
 
+      if (req.file) {
+        if (
+          playlist.imageUrl !==
+          'https://d2n91ghxz89e1f.cloudfront.net/image-1702656156574'
+        ) {
+          deleteS3(playlist.imageUrl, (err, data) => {
+            if (err) {
+              console.error('Error deleting file from S3', err);
+            } else {
+              console.log('File deleted successfully from S3');
+            }
+          });
+        }
+
+        uploadS3(req.file.filename, req.file.path, (err, data) => {
+          fs.unlink(req.file.path, err => {
+            if (err) {
+              console.error('Error deleting temporary file', err);
+            } else {
+              console.log('Temporary file deleted successfully');
+            }
+          });
+          if (err) {
+            console.error('Error uploading file to S3', err);
+            res.status(500).send('Error uploading file to S3');
+          } else {
+            playlist.imageUrl = `${AWS_CLOUDFRONT_HOST}${req.file.filename}`;
+            playlist.save((err, playlist) => {
+              if (err) {
+                return res.send({
+                  message: 'Error saving playlist',
+                  error: err,
+                });
+              }
+            });
+          }
+        });
+      }
+
       res.json(playlist);
     }
   );
 };
 
 exports.deletePlaylist = (req, res) => {
-  const albumId = req.params.id;
+  const playlistId = req.params.id;
 
-  Playlist.findByIdAndRemove(albumId)
+  Playlist.findByIdAndRemove(playlistId)
     .then(playlist => {
       if (!playlist) {
         res
@@ -111,19 +150,24 @@ exports.deletePlaylist = (req, res) => {
         return;
       }
 
-      deleteS3(playlist.imageUrl, (err, data) => {
-        if (err) {
-          console.error('Error deleting file from S3', err);
-        } else {
-          console.log('File deleted successfully from S3');
-        }
-      });
+      if (
+        !playlist.imageUrl ===
+        'https://d2n91ghxz89e1f.cloudfront.net/image-1702656156574'
+      ) {
+        deleteS3(playlist.imageUrl, (err, data) => {
+          if (err) {
+            console.error('Error deleting file from S3', err);
+          } else {
+            console.log('File deleted successfully from S3');
+          }
+        });
+      }
 
       res.send({ message: 'Playlist supprimé avec succès' });
     })
     .catch(err => {
       res.status(500).send({
-        message: 'Impossible de supprimer l playlist avec l ID=' + albumId,
+        message: 'Impossible de supprimer l playlist avec l ID=' + playlistId,
       });
     });
 };
@@ -140,14 +184,12 @@ exports.addTrackToPlaylist = async (req, res) => {
         .send({ message: "Playlist non trouvée avec l'ID fourni" });
     }
 
-    // Check if track is already in the playlist
     if (playlist.tracks.includes(trackId)) {
       return res
         .status(400)
         .send({ message: 'Le track est déjà dans la playlist' });
     }
 
-    // Add track to playlist
     playlist.tracks.push(trackId);
     const updatedPlaylist = await playlist.save();
 
@@ -166,6 +208,49 @@ exports.addTrackToPlaylist = async (req, res) => {
   } catch (err) {
     return res.status(500).send({
       message: 'Erreur lors de la mise à jour de la playlist',
+      error: err,
+    });
+  }
+};
+
+exports.deleteTrackFromPlaylist = async (req, res) => {
+  const playlistId = req.params.id;
+  const trackId = req.params.trackId;
+
+  try {
+    const playlist = await Playlist.findById(playlistId);
+    if (!playlist) {
+      return res
+        .status(404)
+        .send({ message: "Playlist non trouvée avec l'ID fourni" });
+    }
+
+    if (!playlist.tracks.includes(trackId)) {
+      return res
+        .status(400)
+        .send({ message: "Le track n'est pas dans la playlist" });
+    }
+
+    // Remove track from playlist
+    const trackIndex = playlist.tracks.indexOf(trackId);
+    playlist.tracks.splice(trackIndex, 1);
+    const updatedPlaylist = await playlist.save();
+
+    const populatedPlaylist = await Playlist.populate(updatedPlaylist, {
+      path: 'tracks',
+      populate: {
+        path: 'album',
+        populate: {
+          path: 'artist',
+          model: 'Artist',
+        },
+      },
+    });
+
+    return res.json(populatedPlaylist);
+  } catch (err) {
+    return res.status(500).send({
+      message: 'Erreur lors de la suppression du track de la playlist',
       error: err,
     });
   }
